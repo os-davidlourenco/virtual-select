@@ -161,14 +161,14 @@ describe('Accessibility attributes - virtualized options metadata', () => {
       .should('exist')
       .as('listboxContainer');
 
-    cy.getDropbox(null, id)
-      .parent('.vscomp-dropbox-container')
-      .should('exist')
-      .as('listboxRegion');
-
-    // Get the combobox wrapper ID for reference
+    // Cache reference to the combobox wrapper (where aria-activedescendant is set)
     cy.getVs(id)
       .find('.vscomp-ele-wrapper')
+      .should('exist')
+      .as('comboboxWrapper');
+
+    // Get the combobox wrapper ID for reference
+    cy.get('@comboboxWrapper')
       .invoke('attr', 'id')
       .as('comboboxId');
 
@@ -180,7 +180,7 @@ describe('Accessibility attributes - virtualized options metadata', () => {
     });
 
     // Navigate to first option using keyboard (Down arrow from combobox)
-    cy.getVs(id).find('.vscomp-ele-wrapper').type('{downarrow}');
+    cy.get('@comboboxWrapper').type('{downarrow}');
     cy.wait(100); // Wait for focus to update
 
     // Get first option and verify it's focused
@@ -195,9 +195,11 @@ describe('Accessibility attributes - virtualized options metadata', () => {
       .invoke('attr', 'id')
       .as('firstOptionId');
 
-    // Verify aria-activedescendant is set on listbox container when option is focused
+    // Verify aria-activedescendant is set on both combobox wrapper and listbox container
     cy.get('@firstOptionId').then((firstOptionId) => {
-      cy.get('@listboxRegion')
+      cy.get('@comboboxWrapper')
+        .should('have.attr', 'aria-activedescendant', firstOptionId);
+      cy.get('@listboxContainer')
         .should('have.attr', 'aria-activedescendant', firstOptionId);
     });
 
@@ -217,9 +219,11 @@ describe('Accessibility attributes - virtualized options metadata', () => {
       .invoke('attr', 'id')
       .as('secondOptionId');
 
-    // Verify aria-activedescendant updates to second option
+    // Verify aria-activedescendant updates on both combobox wrapper and listbox container
     cy.get('@secondOptionId').then((secondOptionId) => {
-      cy.get('@listboxRegion')
+      cy.get('@comboboxWrapper')
+        .should('have.attr', 'aria-activedescendant', secondOptionId);
+      cy.get('@listboxContainer')
         .should('have.attr', 'aria-activedescendant', secondOptionId);
     });
 

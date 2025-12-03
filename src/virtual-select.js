@@ -287,9 +287,6 @@ export class VirtualSelect {
   }
 
   renderOptions() {
-    // Calculate ARIA metadata before rendering to ensure it's always up to date
-    this.calculateAriaMetadata();
-
     let html = '';
     const visibleOptions = this.getVisibleOptions();
     let checkboxHtml = '';
@@ -954,6 +951,8 @@ export class VirtualSelect {
     }
 
     this.setOptionsHeight();
+    // Calculate ARIA metadata for options set via setOptionsMethod
+    this.calculateAriaMetadata();
     this.setVisibleOptions();
 
     if (this.showOptionsOnlyOnSearch) {
@@ -1904,6 +1903,9 @@ export class VirtualSelect {
 
     this.visibleOptionsCount = visibleOptionsCount;
 
+    // Calculate ARIA metadata after visibility is determined (not on every render)
+    this.calculateAriaMetadata();
+
     this.afterSetVisibleOptionsCount();
   }
 
@@ -1924,28 +1926,19 @@ export class VirtualSelect {
     let filteredPosition = 0;
     const optionsSource = this.sortedOptions && this.sortedOptions.length ? this.sortedOptions : this.options;
 
-    // Iterate through ALL options (not just rendered ones) to calculate positions in the full filtered set
+    // Iterate through ALL options to calculate positions in the full filtered set
+    // Only assign filteredIndex to visible selectable options (skip non-visible to reduce writes)
     optionsSource.forEach((d) => {
-      if (d.isCurrentNew) {
-        // eslint-disable-next-line no-param-reassign
-        d.filteredIndex = undefined;
+      if (d.isCurrentNew || d.isVisible !== true) {
         return;
       }
 
-      if (d.isVisible === true) {
-        const isSelectableGroupTitle = d.isGroupTitle && this.multiple && !this.disableOptionGroupCheckbox;
-        if (!d.isGroupTitle || isSelectableGroupTitle) {
-          filteredPosition += 1;
-          ariaSetSize += 1;
-          // eslint-disable-next-line no-param-reassign
-          d.filteredIndex = filteredPosition;
-        } else {
-          // eslint-disable-next-line no-param-reassign
-          d.filteredIndex = undefined;
-        }
-      } else {
+      const isSelectableGroupTitle = d.isGroupTitle && this.multiple && !this.disableOptionGroupCheckbox;
+      if (!d.isGroupTitle || isSelectableGroupTitle) {
+        filteredPosition += 1;
+        ariaSetSize += 1;
         // eslint-disable-next-line no-param-reassign
-        d.filteredIndex = undefined;
+        d.filteredIndex = filteredPosition;
       }
     });
 
@@ -1956,9 +1949,6 @@ export class VirtualSelect {
         ariaSetSize += 1;
         // eslint-disable-next-line no-param-reassign
         newOption.filteredIndex = filteredPosition;
-      } else if (newOption) {
-        // eslint-disable-next-line no-param-reassign
-        newOption.filteredIndex = undefined;
       }
     }
 
@@ -2608,9 +2598,9 @@ export class VirtualSelect {
     } else {
       DomUtils.dispatchEvent(this.$ele, 'beforeClose');
       DomUtils.setAria(this.$wrapper, 'expanded', false);
+      // Clear aria-activedescendant from both combobox wrapper and listbox container
       DomUtils.setAria(this.$wrapper, 'activedescendant', '');
-      // Also clear aria-activedescendant on the listbox container
-      DomUtils.setAria(this.$dropboxContainer, 'activedescendant', '');
+      DomUtils.setAria(this.$optionsContainer, 'activedescendant', '');
     }
 
     if (this.dropboxPopover && !isSilent) {
@@ -3491,14 +3481,13 @@ export class VirtualSelect {
     DomUtils.toggleClass($ele, 'focused', isFocused);
     DomUtils.setAttr($ele, 'tabindex', isFocused ? '0' : '-1');
 
-    if (document.activeElement !== this.$searchInput) {
-      $ele.focus();
-    }
-
     if (isFocused) {
+      if (document.activeElement !== this.$searchInput) {
+        $ele.focus();
+      }
+      // Set aria-activedescendant on both combobox wrapper and listbox container for screen reader support
       DomUtils.setAria(this.$wrapper, 'activedescendant', $ele.id);
-      // Also set aria-activedescendant on the listbox container for better screen reader support
-      DomUtils.setAria(this.$dropboxContainer, 'activedescendant', $ele.id);
+      DomUtils.setAria(this.$optionsContainer, 'activedescendant', $ele.id);
     }
   }
 
