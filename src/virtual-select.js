@@ -691,6 +691,13 @@ export class VirtualSelect {
   }
 
   onOptionsScroll() {
+    // Remove focus only on manual scrolling (scrollbar/mouse wheel) to prevent auto-scroll conflict
+    // Programmatic scrolling (from keyboard navigation) is tracked via isProgrammaticScroll flag
+    if (!this.isProgrammaticScroll) {
+      this.removeOptionFocusOnScroll();
+    }
+    // Clear the flag after scroll event completes
+    this.isProgrammaticScroll = false;
     this.setVisibleOptions(true);
   }
 
@@ -2160,6 +2167,7 @@ export class VirtualSelect {
     });
 
     if (selectedOptionIndex) {
+      this.isProgrammaticScroll = true;
       this.$optionsContainer.scrollTop = this.optionHeight * selectedOptionIndex;
     }
   }
@@ -2731,6 +2739,7 @@ export class VirtualSelect {
       }
 
       DomUtils.setAttr($focusableEle, 'tabindex', '0');
+      this.isProgrammaticScroll = true;
       this.$optionsContainer.scrollTop = this.optionHeight * this.getFirstVisibleOptionIndex();
       this.focusOption({
         focusFirst: true,
@@ -2803,6 +2812,7 @@ export class VirtualSelect {
     }
 
     if (newScrollTop !== undefined) {
+      this.isProgrammaticScroll = true;
       this.$optionsContainer.scrollTop = newScrollTop;
     }
   }
@@ -2816,6 +2826,30 @@ export class VirtualSelect {
 
     this.toggleOptionFocusedState($focusedEle, false);
     this.toggleFocusedProp(null);
+  }
+
+  removeOptionFocusOnScroll() {
+    const $focusedEle = this.$dropboxContainer.querySelector('.vscomp-option.focused');
+
+    if (!$focusedEle) {
+      return;
+    }
+
+    // Remove focus state
+    this.toggleOptionFocusedState($focusedEle, false);
+    this.toggleFocusedProp(null);
+
+    // Ensure focus returns to wrapper (not search input) to preserve keyboard navigation
+    // Use setTimeout to ensure blur completes and browser has moved focus before we redirect it
+    if (document.activeElement === $focusedEle) {
+      $focusedEle.blur();
+      setTimeout(() => {
+        // If focus moved to search input (or anywhere else), move it to wrapper
+        if (this.isOpened()) {
+          this.$wrapper.focus();
+        }
+      }, 0);
+    }
   }
 
   selectOption($ele, { event } = {}) {
@@ -3153,6 +3187,7 @@ export class VirtualSelect {
     const { scrollTop } = this.$optionsContainer;
 
     if (scrollTop > 0) {
+      this.isProgrammaticScroll = true;
       this.$optionsContainer.scrollTop = 0;
     }
   }
